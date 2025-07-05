@@ -1,0 +1,109 @@
+version: '3.8'
+
+services:
+  # بوت الأنصار الله الرئيسي
+  ansarollah-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ansarollah-news-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      # مجلد البيانات المستمرة
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - bot-temp:/app/temp
+      # ملف إعدادات مخصص
+      - ./.env:/app/.env:ro
+    networks:
+      - ansarollah-network
+    depends_on:
+      - redis
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "com.ansarollah.service=news-bot"
+      - "com.ansarollah.environment=production"
+
+  # خدمة Redis للتخزين المؤقت والطوابير
+  redis:
+    image: redis:7-alpine
+    container_name: ansarollah-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --appendfsync everysec
+    volumes:
+      - redis-data:/data
+    networks:
+      - ansarollah-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    labels:
+      - "com.ansarollah.service=cache"
+
+  # خدمة مراقبة النظام (اختيارية)
+  watchtower:
+    image: containrrr/watchtower
+    container_name: ansarollah-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_POLL_INTERVAL=3600
+      - WATCHTOWER_INCLUDE_STOPPED=true
+    labels:
+      - "com.ansarollah.service=monitor"
+    profiles:
+      - monitoring
+
+  # خدمة النسخ الاحتياطي (اختيارية)
+  backup:
+    image: alpine:latest
+    container_name: ansarollah-backup
+    restart: "no"
+    volumes:
+      - ./data:/data:ro
+      - ./backups:/backups
+    command: |
+      sh -c "
+        apk add --no-cache tar gzip &&
+        cd /data &&
+        tar -czf /backups/ansarollah-backup-$$(date +%Y%m%d-%H%M%S).tar.gz . &&
+        find /backups -name '*.tar.gz' -mtime +7 -delete
+      "
+    profiles:
+      - backup
+
+# تعريف الشبكات
+networks:
+  ansarollah-network:
+    driver: bridge
+    name: ansarollah-net
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# تعريف الأحجام المستمرة
+volumes:
+  redis-data:
+    driver: local
+    name: ansarollah-redis-data
+  bot-temp:
+    driver: local
+    name: ansarollah-temp-data
+
+# إعدادات Docker Compose الإضافية
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
