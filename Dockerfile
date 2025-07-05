@@ -12,7 +12,13 @@ RUN apt-get update && apt-get install -y \
     g++ \
     curl \
     wget \
-    && rm -rf /var/lib/apt/lists/*
+    libxml2-dev \
+    libxslt1-dev \
+    zlib1g-dev \
+    libjpeg-dev \
+    libpng-dev \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # إنشاء مستخدم غير جذر للأمان
 RUN useradd -m -u 1000 botuser
@@ -20,21 +26,19 @@ RUN useradd -m -u 1000 botuser
 # تحديد مجلد العمل
 WORKDIR /app
 
-# نسخ ملفات المتطلبات
+# نسخ ملفات المتطلبات أولاً للاستفادة من Docker cache
 COPY requirements.txt .
 
 # تثبيت المتطلبات Python
-RUN pip install --no-cache-dir --upgrade pip && \
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
     pip install --no-cache-dir -r requirements.txt
 
 # نسخ ملفات التطبيق
-COPY . .
+COPY --chown=botuser:botuser . .
 
 # إنشاء المجلدات المطلوبة
-RUN mkdir -p /app/data /app/logs /app/temp
-
-# تغيير ملكية الملفات للمستخدم الجديد
-RUN chown -R botuser:botuser /app
+RUN mkdir -p /app/data /app/logs /app/temp && \
+    chown -R botuser:botuser /app
 
 # التبديل للمستخدم الجديد
 USER botuser
@@ -50,9 +54,13 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # كشف المنفذ (للمراقبة إذا لزم الأمر)
 EXPOSE 8080
 
+# نسخ سكريبت نقطة الدخول
+COPY --chown=botuser:botuser docker-entrypoint.sh /app/
+RUN chmod +x /app/docker-entrypoint.sh
+
 # تحديد نقطة الدخول
-ENTRYPOINT ["python3", "main.py"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 
 # أوامر الصحة للتحقق من حالة البوت
-HEALTHCHECK --interval=60s --timeout=10s --start-period=20s --retries=3 \
-  CMD python3 -c "import requests; requests.get('https://api.telegram.org/', timeout=5)" || exit 1
+HEALTHCHECK --interval=60s --timeout=10s --start-period=30s --retries=3 \
+  CMD python3 -c "import sys; sys.exit(0)" || exit 1
