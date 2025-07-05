@@ -1,0 +1,17 @@
+python-telegram-bot==20.7
+requests==2.31.0
+beautifulsoup4==4.12.2
+lxml==4.9.3
+schedule==1.2.1
+aiohttp==3.9.1
+aiofiles==23.2.1
+python-dotenv==1.0.0
+sqlite3
+telegraph==2.2.0
+pillow==10.1.0
+readability-lxml==0.8.1
+newspaper3k==0.2.8
+feedparser==6.0.10
+markdown==3.5.1
+html2text==2020.1.16
+pytz==2023.3

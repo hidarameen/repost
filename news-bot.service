@@ -1,0 +1,25 @@
+[Unit]
+Description=News Bot - Website Monitoring and Telegram Publishing
+After=network.target
+
+[Service]
+Type=simple
+User=newsbot
+Group=newsbot
+WorkingDirectory=/path/to/news-bot
+Environment=PATH=/path/to/news-bot/venv/bin
+ExecStart=/path/to/news-bot/venv/bin/python /path/to/news-bot/main.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/path/to/news-bot
+
+[Install]
+WantedBy=multi-user.target
