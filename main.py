@@ -75,6 +75,9 @@ class NewsBot:
         """Start the bot"""
         logger.info("Starting News Bot...")
         
+        # Print configuration for debugging
+        Config.print_config()
+        
         # Validate configuration
         if not Config.validate():
             logger.error("Configuration validation failed")
