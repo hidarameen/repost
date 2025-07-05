@@ -6,7 +6,6 @@ schedule==1.2.1
 aiohttp==3.9.1
 aiofiles==23.2.1
 python-dotenv==1.0.0
-sqlite3
 telegraph==2.2.0
 pillow==10.1.0
 readability-lxml==0.8.1
