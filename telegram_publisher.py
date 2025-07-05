@@ -299,7 +299,7 @@ class TelegramPublisher:
             if article.image_url:
                 try:
                     message = await self.bot.send_photo(
-                        chat_id=Config.CHANNEL_ID,
+                        chat_id=Config.CHAT_ID,
                         photo=article.image_url,
                         caption=message_text,
                         reply_markup=reply_markup,
@@ -308,21 +308,21 @@ class TelegramPublisher:
                     
                     # Record published message
                     self.db.add_published_message(
-                        article.id, message.message_id, Config.CHANNEL_ID, "photo"
+                        article.id, message.message_id, Config.CHAT_ID, "photo"
                     )
                     
                 except Exception as e:
                     logger.error(f"Error sending photo: {e}")
                     # Fallback to text message
                     message = await self.bot.send_message(
-                        chat_id=Config.CHANNEL_ID,
+                        chat_id=Config.CHAT_ID,
                         text=message_text,
                         reply_markup=reply_markup,
                         parse_mode=ParseMode.MARKDOWN
                     )
             else:
                 message = await self.bot.send_message(
-                    chat_id=Config.CHANNEL_ID,
+                    chat_id=Config.CHAT_ID,
                     text=message_text,
                     reply_markup=reply_markup,
                     parse_mode=ParseMode.MARKDOWN
@@ -367,7 +367,7 @@ class TelegramPublisher:
                     # Send first part with image
                     try:
                         message = await self.bot.send_photo(
-                            chat_id=Config.CHANNEL_ID,
+                            chat_id=Config.CHAT_ID,
                             photo=article.image_url,
                             caption=part,
                             parse_mode=ParseMode.MARKDOWN
@@ -376,7 +376,7 @@ class TelegramPublisher:
                     except Exception as e:
                         logger.error(f"Error sending photo: {e}")
                         message = await self.bot.send_message(
-                            chat_id=Config.CHANNEL_ID,
+                            chat_id=Config.CHAT_ID,
                             text=part,
                             parse_mode=ParseMode.MARKDOWN
                         )
@@ -384,7 +384,7 @@ class TelegramPublisher:
                 else:
                     # Send text parts
                     message = await self.bot.send_message(
-                        chat_id=Config.CHANNEL_ID,
+                        chat_id=Config.CHAT_ID,
                         text=part,
                         parse_mode=ParseMode.MARKDOWN,
                         reply_to_message_id=message_ids[0] if message_ids else None
@@ -399,7 +399,7 @@ class TelegramPublisher:
             # Record all published messages
             for msg_id in message_ids:
                 self.db.add_published_message(
-                    article.id, msg_id, Config.CHANNEL_ID, "text"
+                    article.id, msg_id, Config.CHAT_ID, "text"
                 )
             
             logger.info(f"Published full article: {article.title}")

@@ -72,7 +72,7 @@ async def test_configuration():
     print("6. Testing channel access...")
     try:
         bot = Bot(token=Config.BOT_TOKEN)
-        channel_info = await bot.get_chat(Config.CHANNEL_ID)
+        channel_info = await bot.get_chat(Config.CHAT_ID)
         print(f"✅ Channel access successful: {channel_info.title}\n")
     except Exception as e:
         print(f"❌ Channel access error: {e}\n")
@@ -89,7 +89,7 @@ async def test_configuration():
     # Show configuration summary
     print("📊 Configuration Summary:")
     print(f"  • Website URL: {Config.WEBSITE_URL}")
-    print(f"  • Channel ID: {Config.CHANNEL_ID}")
+            print(f"  • Chat ID: {Config.CHAT_ID}")
     print(f"  • Check Interval: {Config.CHECK_INTERVAL} seconds")
     print(f"  • Auto Publish: {Config.AUTO_PUBLISH}")
     print(f"  • Text Shortening: {Config.ENABLE_TEXT_SHORTENING}")
