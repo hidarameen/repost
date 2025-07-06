@@ -567,7 +567,16 @@ class TelegramPublisher:
     async def run_bot(self):
         """Run the bot"""
         try:
-            logger.info("Bot started successfully")
+            logger.info("Initializing Telegram bot...")
+            
+            # Initialize the application if not already done
+            if not self.application:
+                self.setup_handlers()
+            
+            # Initialize the application
+            await self.application.initialize()
+            
+            logger.info("Telegram bot started successfully")
             await self.application.run_polling(drop_pending_updates=True)
             
         except Exception as e:
@@ -578,7 +587,12 @@ class TelegramPublisher:
         """Stop the bot"""
         try:
             if self.application and self.application.running:
+                # Stop the updater first
+                await self.application.updater.stop()
+                # Then stop the application
                 await self.application.stop()
+                # Shutdown the application
+                await self.application.shutdown()
                 logger.info("Telegram bot stopped successfully")
         except Exception as e:
             logger.error(f"Error stopping bot: {e}")
