@@ -53,7 +53,8 @@ class NewsBot:
         self.monitor_task = None
         self.bot_task = None
         self.schedule_thread = None
-        self.shutdown_event = asyncio.Event()
+        self.shutdown_event = None
+        self._loop = None
         
         # Initialize components
         self.db = Database()
@@ -72,12 +73,18 @@ class NewsBot:
         logger.info(f"Received signal {signum}, shutting down...")
         self.running = False
         # Set the shutdown event instead of creating a task
-        if not self.shutdown_event.is_set():
+        if self.shutdown_event and not self.shutdown_event.is_set():
             self.shutdown_event.set()
     
     async def start(self):
         """Start the bot"""
         logger.info("Starting News Bot...")
+        
+        # Store the event loop for thread-safe task scheduling
+        self._loop = asyncio.get_event_loop()
+        
+        # Create shutdown event in the proper event loop context
+        self.shutdown_event = asyncio.Event()
         
         # Print configuration for debugging
         Config.print_config()
@@ -288,8 +295,15 @@ class NewsBot:
 🔄 حالة البوت: {'🟢 يعمل' if self.running else '🔴 متوقف'}
             """
             
-            # Send to admins
-            asyncio.create_task(self.telegram_publisher.notify_admins(report))
+            # Use asyncio.run_coroutine_threadsafe to safely schedule the task
+            if self.running and hasattr(self, '_loop') and self._loop.is_running():
+                future = asyncio.run_coroutine_threadsafe(
+                    self.telegram_publisher.notify_admins(report), 
+                    self._loop
+                )
+                # Don't wait for the result to avoid blocking the scheduler thread
+            else:
+                logger.info(f"Daily report ready: {report}")
             
         except Exception as e:
             logger.error(f"Error generating daily report: {e}")

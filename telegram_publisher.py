@@ -23,13 +23,16 @@ class TelegramPublisher:
     def __init__(self, db: Database, telegraph_manager: TelegraphManager):
         self.db = db
         self.telegraph_manager = telegraph_manager
-        self.bot = Bot(token=Config.BOT_TOKEN)
         self.application = None
+        self.bot = None
         self.setup_handlers()
     
     def setup_handlers(self):
         """Setup bot handlers"""
         self.application = Application.builder().token(Config.BOT_TOKEN).build()
+        
+        # Get the bot instance from the application
+        self.bot = self.application.bot
         
         # Command handlers
         self.application.add_handler(CommandHandler("start", self.start_command))
@@ -567,14 +570,11 @@ class TelegramPublisher:
     async def run_bot(self):
         """Run the bot"""
         try:
-            logger.info("Initializing Telegram bot...")
+            logger.info("Starting Telegram bot...")
             
             # Initialize the application if not already done
             if not self.application:
                 self.setup_handlers()
-            
-            # Initialize the application
-            await self.application.initialize()
             
             logger.info("Telegram bot started successfully")
             await self.application.run_polling(drop_pending_updates=True)
@@ -586,11 +586,20 @@ class TelegramPublisher:
     async def stop_bot(self):
         """Stop the bot"""
         try:
-            if self.application and self.application.running:
-                # Stop the updater first
-                await self.application.updater.stop()
-                # Then stop the application
-                await self.application.stop()
+            if self.application:
+                logger.info("Stopping Telegram bot...")
+                
+                # Stop the updater if it exists and is running
+                if hasattr(self.application, 'updater') and self.application.updater:
+                    try:
+                        await self.application.updater.stop()
+                    except Exception as e:
+                        logger.warning(f"Error stopping updater: {e}")
+                
+                # Stop the application
+                if self.application.running:
+                    await self.application.stop()
+                
                 # Shutdown the application
                 await self.application.shutdown()
                 logger.info("Telegram bot stopped successfully")
