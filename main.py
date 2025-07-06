@@ -126,7 +126,10 @@ class NewsBot:
                 try:
                     await task
                 except asyncio.CancelledError:
+                    logger.debug(f"Task {task} was cancelled successfully")
                     pass
+                except Exception as e:
+                    logger.warning(f"Error while cancelling task {task}: {e}")
             
             # Stop the bot properly
             await self.stop()
