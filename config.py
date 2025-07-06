@@ -72,6 +72,22 @@ class Config:
             print(f"Missing required configuration: {', '.join(missing_fields)}")
             return False
         
+        # Validate bot token format
+        if cls.BOT_TOKEN:
+            if not cls.BOT_TOKEN.count(':') == 1:
+                print("❌ BOT_TOKEN format is incorrect!")
+                print("📋 الصيغة الصحيحة: 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz")
+                print("   احصل على token جديد من @BotFather")
+                return False
+            
+            # Check if token looks valid
+            parts = cls.BOT_TOKEN.split(':')
+            if not parts[0].isdigit() or len(parts[1]) < 35:
+                print("❌ BOT_TOKEN format is incorrect!")
+                print("📋 الصيغة الصحيحة: 1234567890:ABCdefGHIjklMNOpqrsTUVwxyz")
+                print("   احصل على token جديد من @BotFather")
+                return False
+        
         # Check if at least one admin is configured
         if not cls.ADMIN_IDS:
             print("Warning: No admin IDs configured")

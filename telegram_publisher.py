@@ -581,6 +581,23 @@ class TelegramPublisher:
             # Initialize the application
             await self.application.initialize()
             
+            # Test the bot token by calling getMe
+            try:
+                bot_info = await self.application.bot.get_me()
+                logger.info(f"✅ البوت صحيح: {bot_info.first_name} (@{bot_info.username})")
+            except Exception as e:
+                if "token" in str(e).lower() and ("rejected" in str(e).lower() or "unauthorized" in str(e).lower()):
+                    logger.error("❌ البوت Token غير صحيح أو منتهي الصلاحية!")
+                    logger.error("📋 الرجاء:")
+                    logger.error("   1. إنشاء بوت جديد من @BotFather")
+                    logger.error("   2. تحديث BOT_TOKEN في ملف .env")
+                    logger.error("   3. إعادة تشغيل البوت")
+                    logger.error(f"   الخطأ الكامل: {e}")
+                    raise
+                else:
+                    logger.error(f"Error testing bot token: {e}")
+                    raise
+            
             # Start polling
             await self.application.start()
             self.application.updater.start_polling(drop_pending_updates=True)
@@ -602,6 +619,14 @@ class TelegramPublisher:
                 # This is expected during shutdown, no need to cleanup here
                 # The stop_bot method will handle proper cleanup
                 pass
+            elif "token" in str(e).lower() and ("rejected" in str(e).lower() or "unauthorized" in str(e).lower()):
+                logger.error("❌ البوت Token غير صحيح أو منتهي الصلاحية!")
+                logger.error("📋 الرجاء:")
+                logger.error("   1. إنشاء بوت جديد من @BotFather")
+                logger.error("   2. تحديث BOT_TOKEN في ملف .env")
+                logger.error("   3. إعادة تشغيل البوت")
+                logger.error(f"   الخطأ الكامل: {e}")
+                raise
             else:
                 logger.error(f"Error running bot: {e}")
                 raise
