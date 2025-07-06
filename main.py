@@ -53,6 +53,7 @@ class NewsBot:
         self.monitor_task = None
         self.bot_task = None
         self.schedule_thread = None
+        self.shutdown_event = asyncio.Event()
         
         # Initialize components
         self.db = Database()
@@ -69,7 +70,10 @@ class NewsBot:
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals"""
         logger.info(f"Received signal {signum}, shutting down...")
-        asyncio.create_task(self.stop())
+        self.running = False
+        # Set the shutdown event instead of creating a task
+        if not self.shutdown_event.is_set():
+            self.shutdown_event.set()
     
     async def start(self):
         """Start the bot"""
@@ -102,22 +106,49 @@ class NewsBot:
         
         logger.info("Bot started successfully")
         
-        # Wait for tasks to complete
-        await asyncio.gather(self.monitor_task, self.bot_task, return_exceptions=True)
+        # Wait for shutdown signal or task completion
+        try:
+            done, pending = await asyncio.wait(
+                [self.monitor_task, self.bot_task, asyncio.create_task(self.shutdown_event.wait())],
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            # Cancel pending tasks
+            for task in pending:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+            
+            # Stop the bot properly
+            await self.stop()
+            
+        except Exception as e:
+            logger.error(f"Error during bot execution: {e}")
+            await self.stop()
         
         return True
     
     async def stop(self):
         """Stop the bot"""
+        if not self.running:
+            return
+            
         logger.info("Stopping News Bot...")
         
         self.running = False
         
         # Cancel tasks
-        if self.monitor_task:
+        if self.monitor_task and not self.monitor_task.done():
             self.monitor_task.cancel()
+            try:
+                await self.monitor_task
+            except asyncio.CancelledError:
+                pass
         
-        if self.bot_task:
+        # Stop telegram bot
+        if self.telegram_publisher:
             await self.telegram_publisher.stop_bot()
         
         logger.info("Bot stopped successfully")
