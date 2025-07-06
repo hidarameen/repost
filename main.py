@@ -120,16 +120,18 @@ class NewsBot:
                 return_when=asyncio.FIRST_COMPLETED
             )
             
-            # Cancel pending tasks
+            # Cancel pending tasks gracefully
             for task in pending:
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    logger.debug(f"Task {task} was cancelled successfully")
-                    pass
-                except Exception as e:
-                    logger.warning(f"Error while cancelling task {task}: {e}")
+                if not task.done():
+                    task.cancel()
+                    try:
+                        await asyncio.wait_for(task, timeout=5.0)
+                    except asyncio.CancelledError:
+                        logger.debug(f"Task {task} was cancelled successfully")
+                    except asyncio.TimeoutError:
+                        logger.warning(f"Task {task} did not respond to cancellation within timeout")
+                    except Exception as e:
+                        logger.warning(f"Error while cancelling task {task}: {e}")
             
             # Stop the bot properly
             await self.stop()
@@ -149,17 +151,24 @@ class NewsBot:
         
         self.running = False
         
-        # Cancel tasks
+        # Cancel monitor task with timeout
         if self.monitor_task and not self.monitor_task.done():
             self.monitor_task.cancel()
             try:
-                await self.monitor_task
+                await asyncio.wait_for(self.monitor_task, timeout=3.0)
             except asyncio.CancelledError:
-                pass
+                logger.debug("Monitor task cancelled successfully")
+            except asyncio.TimeoutError:
+                logger.warning("Monitor task did not stop within timeout")
+            except Exception as e:
+                logger.warning(f"Error stopping monitor task: {e}")
         
         # Stop telegram bot
         if self.telegram_publisher:
-            await self.telegram_publisher.stop_bot()
+            try:
+                await self.telegram_publisher.stop_bot()
+            except Exception as e:
+                logger.warning(f"Error stopping telegram bot: {e}")
         
         logger.info("Bot stopped successfully")
     
