@@ -579,9 +579,18 @@ class TelegramPublisher:
             logger.info("Telegram bot started successfully")
             await self.application.run_polling(drop_pending_updates=True)
             
-        except Exception as e:
-            logger.error(f"Error running bot: {e}")
+        except asyncio.CancelledError:
+            logger.info("Bot polling was cancelled")
             raise
+        except Exception as e:
+            # Check if this is the specific event loop error
+            if "Cannot close a running event loop" in str(e):
+                logger.info("Bot polling stopped due to event loop shutdown")
+                # Don't re-raise this error as it's expected during shutdown
+                return
+            else:
+                logger.error(f"Error running bot: {e}")
+                raise
     
     async def stop_bot(self):
         """Stop the bot"""
@@ -592,16 +601,27 @@ class TelegramPublisher:
                 # Stop the updater if it exists and is running
                 if hasattr(self.application, 'updater') and self.application.updater:
                     try:
-                        await self.application.updater.stop()
+                        if self.application.updater.running:
+                            await self.application.updater.stop()
                     except Exception as e:
                         logger.warning(f"Error stopping updater: {e}")
                 
                 # Stop the application
-                if self.application.running:
-                    await self.application.stop()
+                try:
+                    if self.application.running:
+                        await self.application.stop()
+                except Exception as e:
+                    logger.warning(f"Error stopping application: {e}")
                 
                 # Shutdown the application
-                await self.application.shutdown()
+                try:
+                    await self.application.shutdown()
+                except Exception as e:
+                    if "Cannot close a running event loop" in str(e):
+                        logger.info("Application shutdown completed (event loop handled)")
+                    else:
+                        logger.warning(f"Error during application shutdown: {e}")
+                
                 logger.info("Telegram bot stopped successfully")
         except Exception as e:
             logger.error(f"Error stopping bot: {e}")
