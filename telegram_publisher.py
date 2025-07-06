@@ -29,25 +29,27 @@ class TelegramPublisher:
     
     def setup_handlers(self):
         """Setup bot handlers"""
-        self.application = Application.builder().token(Config.BOT_TOKEN).build()
-        
-        # Get the bot instance from the application
-        self.bot = self.application.bot
-        
-        # Command handlers
-        self.application.add_handler(CommandHandler("start", self.start_command))
-        self.application.add_handler(CommandHandler("help", self.help_command))
-        self.application.add_handler(CommandHandler("status", self.status_command))
-        self.application.add_handler(CommandHandler("pending", self.pending_command))
-        self.application.add_handler(CommandHandler("settings", self.settings_command))
-        self.application.add_handler(CommandHandler("sections", self.sections_command))
-        self.application.add_handler(CommandHandler("test", self.test_command))
-        
-        # Callback handlers
-        self.application.add_handler(CallbackQueryHandler(self.handle_callback))
-        
-        # Message handlers
-        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
+        # Only create application if it doesn't exist
+        if not self.application:
+            self.application = Application.builder().token(Config.BOT_TOKEN).build()
+            
+            # Get the bot instance from the application
+            self.bot = self.application.bot
+            
+            # Command handlers
+            self.application.add_handler(CommandHandler("start", self.start_command))
+            self.application.add_handler(CommandHandler("help", self.help_command))
+            self.application.add_handler(CommandHandler("status", self.status_command))
+            self.application.add_handler(CommandHandler("pending", self.pending_command))
+            self.application.add_handler(CommandHandler("settings", self.settings_command))
+            self.application.add_handler(CommandHandler("sections", self.sections_command))
+            self.application.add_handler(CommandHandler("test", self.test_command))
+            
+            # Callback handlers
+            self.application.add_handler(CallbackQueryHandler(self.handle_callback))
+            
+            # Message handlers
+            self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
     
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
@@ -576,18 +578,30 @@ class TelegramPublisher:
             if not self.application:
                 self.setup_handlers()
             
-            logger.info("Telegram bot started successfully")
-            await self.application.run_polling(drop_pending_updates=True)
+            # Initialize the application
+            await self.application.initialize()
             
+            # Start polling
+            await self.application.start()
+            self.application.updater.start_polling(drop_pending_updates=True)
+            
+            logger.info("Telegram bot started successfully")
+            
+            # Keep the bot running until stopped
+            while self.application.running:
+                await asyncio.sleep(1)
+                
         except asyncio.CancelledError:
             logger.info("Bot polling was cancelled")
+            # Re-raise the cancellation, cleanup will be handled by stop_bot
             raise
         except Exception as e:
             # Check if this is the specific event loop error
             if "Cannot close a running event loop" in str(e):
                 logger.info("Bot polling stopped due to event loop shutdown")
-                # Don't re-raise this error as it's expected during shutdown
-                return
+                # This is expected during shutdown, no need to cleanup here
+                # The stop_bot method will handle proper cleanup
+                pass
             else:
                 logger.error(f"Error running bot: {e}")
                 raise
@@ -602,7 +616,7 @@ class TelegramPublisher:
                 if hasattr(self.application, 'updater') and self.application.updater:
                     try:
                         if self.application.updater.running:
-                            await self.application.updater.stop()
+                            self.application.updater.stop()
                     except Exception as e:
                         logger.warning(f"Error stopping updater: {e}")
                 
@@ -613,12 +627,14 @@ class TelegramPublisher:
                 except Exception as e:
                     logger.warning(f"Error stopping application: {e}")
                 
-                # Shutdown the application
+                # Shutdown the application 
                 try:
                     await self.application.shutdown()
                 except Exception as e:
                     if "Cannot close a running event loop" in str(e):
                         logger.info("Application shutdown completed (event loop handled)")
+                    elif "shutdown" in str(e).lower() and "already" in str(e).lower():
+                        logger.info("Application already shut down")
                     else:
                         logger.warning(f"Error during application shutdown: {e}")
                 
